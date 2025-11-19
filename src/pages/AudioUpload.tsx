@@ -1,56 +1,22 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Upload } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ArrowLeft, Upload, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AudioUpload() {
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   const handleUpload = async () => {
-    if (!title.trim() || !file) {
-      toast.error('Please provide title and audio file');
-      return;
-    }
-
-    setUploading(true);
-
-    try {
-      const fileName = `${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('audio')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('audio')
-        .getPublicUrl(fileName);
-
-      const { error } = await supabase.from('audio_lessons').insert({
-        title,
-        audio_url: publicUrl,
-        teacher_id: user?.id,
-      });
-
-      if (error) throw error;
-
-      toast.success('Audio uploaded!');
-      navigate('/dashboard');
-    } catch (error) {
-      toast.error('Upload failed');
-    } finally {
-      setUploading(false);
-    }
+    toast.error('Audio upload feature is not yet implemented with MongoDB backend');
+    // TODO: Implement file upload with a storage service (AWS S3, Cloudinary, etc.)
+    // and create the corresponding backend API endpoint
   };
 
   return (
@@ -64,6 +30,10 @@ export default function AudioUpload() {
         <Card>
           <CardHeader>
             <CardTitle>Upload Audio Lesson</CardTitle>
+            <CardDescription className="flex items-center gap-2 text-yellow-600">
+              <AlertCircle className="h-4 w-4" />
+              Audio upload feature coming soon - requires file storage setup
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -84,9 +54,9 @@ export default function AudioUpload() {
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
               />
             </div>
-            <Button onClick={handleUpload} disabled={uploading} className="w-full">
+            <Button onClick={handleUpload} disabled className="w-full">
               <Upload className="mr-2 h-4 w-4" />
-              {uploading ? 'Uploading...' : 'Upload'}
+              Upload (Coming Soon)
             </Button>
           </CardContent>
         </Card>

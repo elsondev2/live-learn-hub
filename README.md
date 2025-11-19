@@ -1,73 +1,124 @@
-# Welcome to your Lovable project
+# Live Learn Hub - MongoDB Edition
 
-## Project info
+A collaborative learning platform for teachers and students with MongoDB backend.
 
-**URL**: https://lovable.dev/projects/a6d3871e-251b-4348-a871-29bb871cbec4
+## 🚀 Quick Start
 
-## How can I edit this code?
+### Option 1: Use the Startup Script (Windows)
+Double-click `start-dev.bat` to start both servers automatically.
 
-There are several ways of editing your application.
+### Option 2: Manual Start
 
-**Use Lovable**
+**Terminal 1 - Backend:**
+```bash
+npm run server
+```
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/a6d3871e-251b-4348-a871-29bb871cbec4) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+**Terminal 2 - Frontend:**
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Then open http://localhost:5173 in your browser.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 📋 Features
 
-**Use GitHub Codespaces**
+- ✅ User authentication (Teacher/Student roles)
+- ✅ Rich text note editor with TipTap
+- ✅ Interactive mind map creator
+- ✅ Real-time data persistence with MongoDB
+- ✅ JWT-based secure authentication
+- ✅ RESTful API backend
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 🛠️ Tech Stack
 
-## What technologies are used for this project?
-
-This project is built with:
-
+**Frontend:**
+- React + TypeScript
 - Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- TailwindCSS + shadcn/ui
+- TipTap (rich text editor)
+- React Flow (mind maps)
+- React Router
 
-## How can I deploy this project?
+**Backend:**
+- Express.js
+- MongoDB (Atlas)
+- JWT authentication
+- bcrypt password hashing
 
-Simply open [Lovable](https://lovable.dev/projects/a6d3871e-251b-4348-a871-29bb871cbec4) and click on Share -> Publish.
+## 📁 Project Structure
 
-## Can I connect a custom domain to my Lovable project?
+```
+├── server/              # Express backend
+│   ├── routes/         # API routes
+│   ├── middleware/     # Auth middleware
+│   └── db.ts          # MongoDB connection
+├── src/                # React frontend
+│   ├── components/    # UI components
+│   ├── pages/         # Page components
+│   └── lib/           # API clients & utilities
+└── .env               # Environment variables
+```
 
-Yes, you can!
+## 🔐 Environment Variables
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+**Frontend (.env):**
+```
+VITE_API_URL=http://localhost:3001/api
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+**Backend (server/.env):**
+```
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_secret_key
+PORT=3001
+```
+
+## 📚 Documentation
+
+- [MongoDB Setup Guide](./MONGODB_SETUP.md) - Detailed setup and architecture
+- [Quick Start Guide](./QUICKSTART.md) - Step-by-step getting started
+
+## 🔧 Available Scripts
+
+- `npm run dev` - Start frontend dev server
+- `npm run server` - Start backend server
+- `npm run build` - Build for production
+- `npm run lint` - Run ESLint
+
+## 🌐 API Endpoints
+
+### Authentication
+- `POST /api/auth/signup` - Register new user
+- `POST /api/auth/signin` - Login
+- `GET /api/auth/verify` - Verify token
+
+### Notes (Protected)
+- `GET /api/notes` - List all notes
+- `GET /api/notes/:id` - Get note by ID
+- `POST /api/notes` - Create note
+- `PUT /api/notes/:id` - Update note
+- `DELETE /api/notes/:id` - Delete note
+
+### Mind Maps (Protected)
+- `GET /api/mindmaps` - List all mind maps
+- `GET /api/mindmaps/:id` - Get mind map by ID
+- `POST /api/mindmaps` - Create mind map
+- `PUT /api/mindmaps/:id` - Update mind map
+- `DELETE /api/mindmaps/:id` - Delete mind map
+
+## 🔒 Security
+
+- Passwords hashed with bcrypt
+- JWT tokens for authentication
+- Protected API routes
+- CORS enabled
+- MongoDB credentials server-side only
+
+## 📝 License
+
+MIT
+
+## 🤝 Contributing
+
+Contributions welcome! Please feel free to submit a Pull Request.

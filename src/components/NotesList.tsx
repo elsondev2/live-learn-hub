@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { FileText, Trash2, Edit, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import * as services from '@/lib/services';
 
 interface Note {
-  id: string;
+  _id: string;
   title: string;
-  content: any;
+  content: unknown;
   created_at: string;
   updated_at: string;
 }
@@ -21,54 +21,34 @@ export function NotesList({ readonly = false }: { readonly?: boolean }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchNotes();
-    subscribeToNotes();
-  }, []);
+    if (user) {
+      fetchNotes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const fetchNotes = async () => {
-    const { data, error } = await supabase
-      .from('notes')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
+    if (!user) return;
+    
+    try {
+      const data = await services.getNotes(user._id.toString());
+      setNotes(data as unknown as Note[]);
+    } catch (error) {
       console.error('Error fetching notes:', error);
-      return;
+      toast.error('Failed to fetch notes');
     }
-
-    setNotes(data || []);
-  };
-
-  const subscribeToNotes = () => {
-    const channel = supabase
-      .channel('notes-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notes',
-        },
-        () => {
-          fetchNotes();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   };
 
   const deleteNote = async (id: string) => {
-    const { error } = await supabase.from('notes').delete().eq('id', id);
-
-    if (error) {
+    if (!user) return;
+    
+    try {
+      await services.deleteNote(id, user._id.toString());
+      toast.success('Note deleted');
+      fetchNotes();
+    } catch (error) {
       toast.error('Failed to delete note');
-      return;
     }
-
-    toast.success('Note deleted');
   };
 
   if (notes.length === 0) {
@@ -80,36 +60,68 @@ export function NotesList({ readonly = false }: { readonly?: boolean }) {
     );
   }
 
+  const getContentPreview = (content: unknown): string => {
+    try {
+      if (typeof content === 'string') {
+        const parsed = JSON.parse(content);
+        if (parsed?.content && Array.isArray(parsed.content)) {
+          const textContent = parsed.content
+            .map((node: { type?: string; content?: Array<{ text?: string }> }) => {
+              if (node.type === 'paragraph' && node.content) {
+                return node.content.map((c) => c.text || '').join('');
+              }
+              return '';
+            })
+            .join(' ');
+          return textContent.slice(0, 100) + (textContent.length > 100 ? '...' : '');
+        }
+      }
+      return 'No content';
+    } catch {
+      return 'No content';
+    }
+  };
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
       {notes.map((note) => (
-        <Card key={note.id} className="p-4 transition-shadow hover:shadow-md">
-          <div className="mb-3 flex items-start justify-between">
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">{note.title}</h3>
+        <Card key={note._id} className="p-4 sm:p-5 transition-all hover:shadow-lg hover:border-primary/30 cursor-pointer group" onClick={() => navigate(`/notes/${note._id}`)}>
+          <div className="mb-3 flex items-start gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors flex-shrink-0">
+              <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-base sm:text-lg mb-1 truncate group-hover:text-primary transition-colors">
+                {note.title}
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Updated {new Date(note.updated_at).toLocaleDateString()}
+              </p>
             </div>
           </div>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Updated {new Date(note.updated_at).toLocaleDateString()}
+          
+          <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-3">
+            {getContentPreview(note.content)}
           </p>
-          <div className="flex gap-2">
+          
+          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
             <Button
               variant="outline"
               size="sm"
-              className="flex-1"
-              onClick={() => navigate(`/notes/${note.id}`)}
+              className="flex-1 text-xs sm:text-sm"
+              onClick={() => navigate(`/notes/${note._id}`)}
             >
-              {readonly ? <Eye className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}
-              {readonly ? 'View' : 'Edit'}
+              {readonly ? <Eye className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> : <Edit className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />}
+              <span className="hidden xs:inline">{readonly ? 'View' : 'Edit'}</span>
             </Button>
             {!readonly && (
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => deleteNote(note.id)}
+                onClick={() => deleteNote(note._id)}
+                className="px-2 sm:px-3"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             )}
           </div>

@@ -2,12 +2,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ReactFlow, MiniMap, Controls, Background, Node, Edge, addEdge, Connection } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import * as services from '@/lib/services';
 
 export default function MindMapEditor() {
   const { id } = useParams();
@@ -19,29 +19,31 @@ export default function MindMapEditor() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (id && id !== 'new') {
+    if (id && id !== 'new' && user) {
       fetchMindMap();
     } else {
       setNodes([
         { id: '1', position: { x: 250, y: 100 }, data: { label: 'Main Topic' } },
       ]);
     }
-  }, [id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, user]);
 
   const fetchMindMap = async () => {
-    const { data } = await supabase
-      .from('mind_maps')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (data) {
-      setTitle(data.title);
-      // Cast Json to any, then validate and set as Node[]/Edge[]
-      const nodesData = data.nodes as any;
-      const edgesData = data.edges as any;
-      setNodes(Array.isArray(nodesData) ? nodesData : []);
-      setEdges(Array.isArray(edgesData) ? edgesData : []);
+    if (!user || !id) return;
+    
+    try {
+      const data = await services.getMindMap(id, user._id.toString());
+      if (data) {
+        setTitle(data.title);
+        const nodesData = data.nodes as unknown;
+        const edgesData = data.edges as unknown;
+        setNodes(Array.isArray(nodesData) ? nodesData : []);
+        setEdges(Array.isArray(edgesData) ? edgesData : []);
+      }
+    } catch (error) {
+      console.error('Error fetching mind map:', error);
+      toast.error('Failed to load mind map');
     }
   };
 
@@ -50,6 +52,8 @@ export default function MindMapEditor() {
   }, []);
 
   const handleSave = async () => {
+    if (!user) return;
+    
     if (!title.trim()) {
       toast.error('Please enter a title');
       return;
@@ -58,23 +62,9 @@ export default function MindMapEditor() {
     setSaving(true);
     try {
       if (id === 'new') {
-        const { error } = await supabase.from('mind_maps').insert({
-          title,
-          nodes: nodes as any,
-          edges: edges as any,
-          teacher_id: user?.id,
-        });
-        if (error) throw error;
+        await services.createMindMap(user._id.toString(), title, nodes, edges);
       } else {
-        const { error } = await supabase
-          .from('mind_maps')
-          .update({ 
-            title, 
-            nodes: nodes as any, 
-            edges: edges as any 
-          })
-          .eq('id', id);
-        if (error) throw error;
+        await services.updateMindMap(id!, user._id.toString(), title, nodes, edges);
       }
       toast.success('Mind map saved!');
       navigate('/dashboard');
@@ -119,8 +109,8 @@ export default function MindMapEditor() {
               setNodes((nds) => {
                 // Apply changes to nodes
                 return nds.map((node) => {
-                  const change = changes.find((c: any) => c.id === node.id);
-                  if (change && change.type === 'position' && change.position) {
+                  const change = changes.find((c) => 'id' in c && c.id === node.id);
+                  if (change && 'type' in change && change.type === 'position' && 'position' in change && change.position) {
                     return { ...node, position: change.position };
                   }
                   return node;
@@ -133,7 +123,7 @@ export default function MindMapEditor() {
               setEdges((eds) => {
                 // Filter out removed edges
                 return eds.filter((edge) => {
-                  const removeChange = changes.find((c: any) => c.id === edge.id && c.type === 'remove');
+                  const removeChange = changes.find((c) => 'id' in c && c.id === edge.id && 'type' in c && c.type === 'remove');
                   return !removeChange;
                 });
               });

@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import * as api from './api';
+import { User } from './api';
 
 interface AuthContextType {
   user: User | null;
-  session: Session | null;
+  session: string | null;
   userRole: 'TEACHER' | 'STUDENT' | null;
   loading: boolean;
   signUp: (email: string, password: string, name: string, role: 'TEACHER' | 'STUDENT') => Promise<void>;
@@ -16,117 +16,91 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const TOKEN_KEY = 'auth_token';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'TEACHER' | 'STUDENT' | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          // Fetch user role with setTimeout to prevent deadlock
-          setTimeout(() => {
-            fetchUserRole(session.user.id);
-          }, 0);
-        } else {
-          setUserRole(null);
-        }
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserRole(session.user.id).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    // Check for existing token
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) {
+      verifyAndSetUser(token);
+    } else {
+      setLoading(false);
+    }
   }, []);
 
-  const fetchUserRole = async (userId: string) => {
+  const verifyAndSetUser = async (token: string) => {
     try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .single();
-
-      if (error) throw error;
-      setUserRole(data.role as 'TEACHER' | 'STUDENT');
+      const user = await api.verifyToken(token);
+      if (user) {
+        setUser(user);
+        setSession(token);
+        setUserRole(user.role);
+      } else {
+        localStorage.removeItem(TOKEN_KEY);
+      }
     } catch (error) {
-      console.error('Error fetching user role:', error);
+      console.error('Error verifying token:', error);
+      localStorage.removeItem(TOKEN_KEY);
+    } finally {
+      setLoading(false);
     }
   };
 
   const signUp = async (email: string, password: string, name: string, role: 'TEACHER' | 'STUDENT') => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name },
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      });
+      const { user, token } = await api.signUp(email, password, name, role);
+      
+      localStorage.setItem(TOKEN_KEY, token);
+      setUser(user);
+      setSession(token);
+      setUserRole(user.role);
 
-      if (error) throw error;
-
-      if (data.user) {
-        // Insert role
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({ user_id: data.user.id, role });
-
-        if (roleError) throw roleError;
-
-        toast.success('Account created successfully!');
-        navigate('/dashboard');
-      }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to sign up');
+      toast.success('Account created successfully!');
+      navigate('/dashboard');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to sign up';
+      toast.error(errorMessage);
       throw error;
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
+      const { user, token } = await api.signIn(email, password);
+      
+      localStorage.setItem(TOKEN_KEY, token);
+      setUser(user);
+      setSession(token);
+      setUserRole(user.role);
 
       toast.success('Signed in successfully!');
       navigate('/dashboard');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to sign in');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to sign in';
+      toast.error(errorMessage);
       throw error;
     }
   };
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      localStorage.removeItem(TOKEN_KEY);
+      setUser(null);
+      setSession(null);
+      setUserRole(null);
 
       toast.success('Signed out successfully');
       navigate('/auth');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to sign out');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to sign out';
+      toast.error(errorMessage);
       throw error;
     }
   };

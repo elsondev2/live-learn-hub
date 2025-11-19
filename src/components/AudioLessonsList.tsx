@@ -1,70 +1,23 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Music, Trash2, Play } from 'lucide-react';
+import { Music, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AudioLesson {
-  id: string;
+  _id: string;
   title: string;
   audio_url: string;
   created_at: string;
 }
 
 export function AudioLessonsList({ readonly = false }: { readonly?: boolean }) {
-  const [lessons, setLessons] = useState<AudioLesson[]>([]);
+  const [lessons] = useState<AudioLesson[]>([]);
 
   useEffect(() => {
-    fetchLessons();
-    subscribeToLessons();
+    // Audio lessons feature not yet implemented with MongoDB backend
+    // TODO: Add audio lessons API endpoints and implement this feature
   }, []);
-
-  const fetchLessons = async () => {
-    const { data, error } = await supabase
-      .from('audio_lessons')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching lessons:', error);
-      return;
-    }
-
-    setLessons(data || []);
-  };
-
-  const subscribeToLessons = () => {
-    const channel = supabase
-      .channel('audio-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'audio_lessons',
-        },
-        () => {
-          fetchLessons();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  };
-
-  const deleteLesson = async (id: string) => {
-    const { error } = await supabase.from('audio_lessons').delete().eq('id', id);
-
-    if (error) {
-      toast.error('Failed to delete lesson');
-      return;
-    }
-
-    toast.success('Lesson deleted');
-  };
 
   if (lessons.length === 0) {
     return (
@@ -78,7 +31,7 @@ export function AudioLessonsList({ readonly = false }: { readonly?: boolean }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {lessons.map((lesson) => (
-        <Card key={lesson.id} className="p-4 transition-shadow hover:shadow-md">
+        <Card key={lesson._id} className="p-4 transition-shadow hover:shadow-md">
           <div className="mb-3 flex items-start justify-between">
             <div className="flex items-center gap-2">
               <Music className="h-5 w-5 text-primary" />
@@ -97,7 +50,6 @@ export function AudioLessonsList({ readonly = false }: { readonly?: boolean }) {
               variant="destructive"
               size="sm"
               className="w-full"
-              onClick={() => deleteLesson(lesson.id)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
