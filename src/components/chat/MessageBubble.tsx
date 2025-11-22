@@ -55,32 +55,30 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
         );
       
       default:
-        return <p className="whitespace-pre-wrap break-words">{message.content}</p>;
+        return <p className="break-words">{message.content}</p>;
     }
   };
 
   return (
-    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-md ${isOwn ? 'max-w-[70%]' : 'max-w-[70%]'}`}>
-        <div
-          className={`px-4 py-2 rounded-lg shadow ${
-            isOwn
-              ? 'bg-[#d9fdd3] text-gray-900 rounded-br-none'
-              : 'bg-white text-gray-900 rounded-bl-none'
-          }`}
-        >
-          {!isOwn && message.senderName && (
-            <p className="text-xs font-semibold text-[#00a884] mb-1">
-              {message.senderName}
-            </p>
-          )}
-          {renderContent()}
-          <div className={`text-xs mt-1 text-right ${isOwn ? 'text-gray-600' : 'text-gray-500'}`}>
-            {new Date(message.createdAt).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </div>
+    <div className={`mb-3 flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+      <div
+        className={`max-w-md px-4 py-2 rounded-lg shadow ${
+          isOwn
+            ? 'bg-green-500 text-white rounded-br-none'
+            : 'bg-white text-gray-900 rounded-bl-none'
+        }`}
+      >
+        {!isOwn && message.senderName && (
+          <p className="text-xs font-semibold text-green-600 mb-1">
+            {message.senderName}
+          </p>
+        )}
+        {renderContent()}
+        <div className={`text-xs mt-1 ${isOwn ? 'text-green-100' : 'text-gray-500'}`}>
+          {new Date(message.createdAt).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
         </div>
       </div>
     </div>

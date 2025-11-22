@@ -1,26 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Send, Phone, Video, MoreVertical, Paperclip, 
-  Image as ImageIcon, Smile, ArrowLeft, Users 
-} from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { Message, Conversation } from '@/types/chat';
 import * as chatService from '@/lib/chatService';
 import { MessageBubble } from './MessageBubble';
 import { CallDialog } from '@/components/chat/CallDialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 interface ChatInterfaceProps {
   conversation: Conversation;
@@ -103,17 +88,21 @@ export function ChatInterface({ conversation, onBack, onViewParticipants }: Chat
     };
   }, [conversation.id, loadMessages, markAsRead, scrollToBottom, user?._id]);
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!newMessage.trim() || sending) return;
+
+    const messageToSend = newMessage.trim();
+    setNewMessage(''); // Clear immediately like WhatsApp
+    handleTyping(false);
 
     setSending(true);
     try {
-      await chatService.sendMessage(conversation.id, newMessage.trim());
-      setNewMessage('');
-      handleTyping(false);
+      await chatService.sendMessage(conversation.id, messageToSend);
       scrollToBottom();
     } catch (error) {
       toast.error('Failed to send message');
+      setNewMessage(messageToSend); // Restore message on error
     } finally {
       setSending(false);
     }
@@ -208,83 +197,33 @@ export function ChatInterface({ conversation, onBack, onViewParticipants }: Chat
     <>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="bg-[#00a884] text-white p-4 flex items-center gap-3 shadow-md">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+        <div className="bg-green-600 text-white p-4 flex items-center gap-3 shadow-md">
+          <button 
             onClick={onBack} 
-            className="md:hidden text-white hover:bg-[#00a884]/80"
+            className="md:hidden text-white hover:bg-green-700 p-2 rounded-full transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
-          </Button>
+          </button>
           
-          <Avatar className="h-10 w-10">
+          <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center font-semibold">
             {getConversationAvatar() ? (
-              <AvatarImage src={getConversationAvatar()} />
-            ) : null}
-            <AvatarFallback className="bg-[#00a884] text-white font-semibold">
-              {conversation.type === 'group' ? (
-                <Users className="h-5 w-5" />
-              ) : (
-                getConversationTitle().slice(0, 2).toUpperCase()
-              )}
-            </AvatarFallback>
-          </Avatar>
-
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold truncate">{getConversationTitle()}</h3>
-            {isRecording ? (
-              <p className="text-xs text-green-100 flex items-center gap-1">
-                <span className="animate-pulse">🎤</span> recording...
-              </p>
-            ) : typingUsers.length > 0 ? (
-              <p className="text-xs text-green-100">
-                {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
-              </p>
-            ) : conversation.type === 'group' ? (
-              <p className="text-xs text-green-100">
-                {conversation.participants.length} participants
-              </p>
-            ) : null}
+              <img src={getConversationAvatar()} alt="" className="w-full h-full rounded-full object-cover" />
+            ) : (
+              getConversationTitle().slice(0, 1).toUpperCase()
+            )}
           </div>
 
-          <div className="flex items-center gap-1">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => startCall('audio')}
-              className="text-white hover:bg-[#00a884]/80"
-            >
-              <Phone className="h-5 w-5" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => startCall('video')}
-              className="text-white hover:bg-[#00a884]/80"
-            >
-              <Video className="h-5 w-5" />
-            </Button>
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-white hover:bg-[#00a884]/80">
-                  <MoreVertical className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {conversation.type === 'group' && (
-                  <DropdownMenuItem onClick={onViewParticipants}>
-                    <Users className="mr-2 h-4 w-4" />
-                    View Participants
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem>Archive Chat</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive">
-                  Leave Chat
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <div className="flex-1">
+            <div className="font-semibold">{getConversationTitle()}</div>
+            {isRecording ? (
+              <div className="text-sm text-green-100">
+                🎤 recording...
+              </div>
+            ) : typingUsers.length > 0 ? (
+              <div className="text-sm text-green-100">
+                typing...
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -305,69 +244,45 @@ export function ChatInterface({ conversation, onBack, onViewParticipants }: Chat
         </div>
 
         {/* Input */}
-        <div className="bg-gray-100 p-4 flex items-center gap-2">
+        <form onSubmit={handleSendMessage} className="bg-gray-100 p-4 flex items-center gap-2">
           <input
-            type="file"
-            id="file-upload"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFileUpload(file);
-            }}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => document.getElementById('file-upload')?.click()}
-            className="text-gray-600 hover:text-gray-900"
-          >
-            <Paperclip className="h-5 w-5" />
-          </Button>
-
-          <Input
-            placeholder={isRecording ? "Recording..." : "Type a message"}
+            type="text"
             value={newMessage}
             onChange={(e) => {
               setNewMessage(e.target.value);
               handleTyping(true);
             }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-              }
-            }}
+            placeholder="Type a message"
+            className="flex-1 px-4 py-3 rounded-full bg-white border border-gray-300 focus:outline-none focus:border-green-500"
             disabled={isRecording}
-            className="flex-1 rounded-full bg-white border-gray-300 focus:border-[#00a884] focus:ring-[#00a884] disabled:opacity-50 disabled:cursor-not-allowed"
           />
-
           {newMessage.trim() ? (
-            <Button
-              onClick={handleSendMessage}
+            <button
+              type="submit"
               disabled={sending}
-              size="icon"
-              className="rounded-full bg-[#00a884] hover:bg-[#00a884]/90 text-white"
+              className="w-12 h-12 rounded-full bg-green-600 text-white flex items-center justify-center hover:bg-green-700 transition-colors disabled:opacity-50"
             >
-              <Send className="h-5 w-5" />
-            </Button>
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
           ) : (
-            <Button
+            <button
+              type="button"
               onClick={handleRecording}
               disabled={isRecording}
-              size="icon"
-              className={`rounded-full transition-colors ${
+              className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
                 isRecording
                   ? 'bg-red-600 text-white animate-pulse'
-                  : 'bg-[#00a884] text-white hover:bg-[#00a884]/90'
+                  : 'bg-green-600 text-white hover:bg-green-700'
               }`}
-              title="Record voice message"
             >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
               </svg>
-            </Button>
+            </button>
           )}
-        </div>
+        </form>
       </div>
 
       {showCallDialog && (
