@@ -34,10 +34,16 @@ export function ChatInterface({ conversation, onBack }: ChatInterfaceProps) {
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
   const PAGE_SIZE = 25;
 
-  const scrollToBottom = useCallback(() => {
-    setTimeout(() => {
-      scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+  const scrollToBottom = useCallback((instant: boolean = false) => {
+    if (instant) {
+      // Instant scroll without animation
+      scrollRef.current?.scrollIntoView({ behavior: 'auto' });
+    } else {
+      // Smooth scroll for new messages
+      setTimeout(() => {
+        scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
   }, []);
 
   const loadMessages = useCallback(async (pageNum: number = 1, append: boolean = false) => {
@@ -56,7 +62,8 @@ export function ChatInterface({ conversation, onBack }: ChatInterfaceProps) {
         setMessages(paginatedData);
       } else {
         setMessages(paginatedData);
-        scrollToBottom();
+        // Instant scroll on initial load
+        scrollToBottom(true);
       }
       
       setHasMore(data.length > PAGE_SIZE * pageNum);
@@ -130,11 +137,30 @@ export function ChatInterface({ conversation, onBack }: ChatInterfaceProps) {
       setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
     });
 
+    // Subscribe to read status updates
+    const unsubscribeReadStatus = chatService.subscribeToMessageReadStatus(
+      conversation.id,
+      (messageIds, userId) => {
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (messageIds.includes(msg.id)) {
+              return {
+                ...msg,
+                readBy: [...(msg.readBy || []), userId],
+              };
+            }
+            return msg;
+          })
+        );
+      }
+    );
+
     return () => {
       unsubscribe();
       unsubscribeTyping();
       unsubscribeEdit();
       unsubscribeDelete();
+      unsubscribeReadStatus();
     };
   }, [conversation.id, loadMessages, markAsRead, scrollToBottom, user?._id]);
 

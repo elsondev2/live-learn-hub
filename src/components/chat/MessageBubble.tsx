@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Message } from '@/types/chat';
-import { formatDistanceToNow } from 'date-fns';
-import { File, Download, MoreVertical, Edit, Trash2, Check, X, CheckCheck, Clock } from 'lucide-react';
+import { File, Download, MoreVertical, Edit, Trash2, Check, X, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -161,23 +160,10 @@ export function MessageBubble({ message, isOwn, onEdit, onDelete }: MessageBubbl
                 })}
               </span>
               {isOwn && (
-                <span className="flex items-center">
-                  {message.status === 'sending' && (
-                    <Clock className="h-3 w-3" />
-                  )}
-                  {message.status === 'sent' && (
-                    <Check className="h-3 w-3" />
-                  )}
-                  {message.status === 'delivered' && (
-                    <CheckCheck className="h-3 w-3" />
-                  )}
-                  {message.status === 'read' && (
+                <span className="flex items-center ml-1" title={message.readBy && message.readBy.length > 1 ? 'Read' : 'Delivered'}>
+                  {message.readBy && message.readBy.length > 1 ? (
                     <CheckCheck className="h-3 w-3 text-blue-400" />
-                  )}
-                  {!message.status && message.readBy && message.readBy.length > 1 && (
-                    <CheckCheck className="h-3 w-3 text-blue-400" />
-                  )}
-                  {!message.status && message.readBy && message.readBy.length === 1 && (
+                  ) : (
                     <CheckCheck className="h-3 w-3" />
                   )}
                 </span>

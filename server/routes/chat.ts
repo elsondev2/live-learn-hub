@@ -237,6 +237,7 @@ router.post('/conversations/:id/messages', authenticateToken, async (req: AuthRe
 router.post('/conversations/:id/read', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDatabase();
+    const io = req.app.get('io');
     const conversationId = req.params.id;
     const userId = req.userId;
 
@@ -253,6 +254,13 @@ router.post('/conversations/:id/read', authenticateToken, async (req: AuthReques
       }
     );
 
+    // Get messages that will be marked as read
+    const messagesToUpdate = await db.collection('messages').find({
+      conversationId,
+      senderId: { $ne: userId },
+      readBy: { $ne: userId },
+    }).toArray();
+
     // Mark all messages as read
     await db.collection('messages').updateMany(
       {
@@ -264,6 +272,16 @@ router.post('/conversations/:id/read', authenticateToken, async (req: AuthReques
         $addToSet: { readBy: userId },
       }
     );
+
+    // Emit read status update to conversation room for each message
+    if (messagesToUpdate.length > 0) {
+      const messageIds = messagesToUpdate.map(msg => msg._id.toString());
+      io.to(`conversation:${conversationId}`).emit('messages_read', {
+        conversationId,
+        messageIds,
+        userId,
+      });
+    }
 
     res.json({ success: true });
   } catch (error) {

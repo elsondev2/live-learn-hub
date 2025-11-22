@@ -1,15 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { ConversationList } from '@/components/chat/ConversationList';
 import { ChatInterface } from '@/components/chat/ChatInterface';
 import { NewChatDialog } from '@/components/chat/NewChatDialog';
 import { Conversation } from '@/types/chat';
 import { MessageSquare } from 'lucide-react';
+import * as chatService from '@/lib/chatService';
 
 export default function Chat() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
   const [chatMode, setChatMode] = useState<'direct' | 'group'>('direct');
+
+  // Preload conversations in background on mount
+  useEffect(() => {
+    // Preload conversations immediately
+    chatService.fetchConversations().catch(console.error);
+  }, []);
+
+  // Preload messages when a conversation is selected
+  useEffect(() => {
+    if (selectedConversation) {
+      // Preload messages in background
+      chatService.fetchMessages(selectedConversation.id).catch(console.error);
+    }
+  }, [selectedConversation]);
 
   const handleNewChat = () => {
     setChatMode('direct');

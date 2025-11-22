@@ -1,5 +1,6 @@
 // Chat service for managing conversations and messages
 import { Conversation, Message, ConversationParticipant } from '@/types/chat';
+import { chatCache } from './chatCache';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -7,14 +8,25 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 const getAuthToken = () => localStorage.getItem('auth_token');
 
 // Fetch all conversations for current user
-export const fetchConversations = async (): Promise<Conversation[]> => {
+export const fetchConversations = async (useCache: boolean = true): Promise<Conversation[]> => {
+  // Try cache first
+  if (useCache) {
+    const cached = chatCache.getConversations();
+    if (cached) return cached;
+  }
+
   const token = getAuthToken();
   const response = await fetch(`${API_URL}/conversations`, {
     headers: { 'Authorization': `Bearer ${token}` },
   });
   
   if (!response.ok) throw new Error('Failed to fetch conversations');
-  return response.json();
+  const data = await response.json();
+  
+  // Cache the result
+  chatCache.setConversations(data);
+  
+  return data;
 };
 
 // Create a new conversation
@@ -39,14 +51,25 @@ export const createConversation = async (
 };
 
 // Fetch messages for a conversation
-export const fetchMessages = async (conversationId: string): Promise<Message[]> => {
+export const fetchMessages = async (conversationId: string, useCache: boolean = true): Promise<Message[]> => {
+  // Try cache first
+  if (useCache) {
+    const cached = chatCache.getMessages(conversationId);
+    if (cached) return cached;
+  }
+
   const token = getAuthToken();
   const response = await fetch(`${API_URL}/conversations/${conversationId}/messages`, {
     headers: { 'Authorization': `Bearer ${token}` },
   });
   
   if (!response.ok) throw new Error('Failed to fetch messages');
-  return response.json();
+  const data = await response.json();
+  
+  // Cache the result
+  chatCache.setMessages(conversationId, data);
+  
+  return data;
 };
 
 // Send a message
@@ -139,6 +162,8 @@ export const subscribeToMessages = (
     // Listen for new messages
     socketService.on('new_message', (message: Message) => {
       if (message.conversationId === conversationId) {
+        // Update cache
+        chatCache.addMessage(conversationId, message);
         onMessage(message);
       }
     });
@@ -234,6 +259,8 @@ export const subscribeToMessageEdits = (
   import('./socket').then(({ socketService }) => {
     socketService.on('message_edited', (message: Message) => {
       if (message.conversationId === conversationId) {
+        // Update cache
+        chatCache.updateMessage(conversationId, message.id, () => message);
         onEdit(message);
       }
     });
@@ -254,6 +281,8 @@ export const subscribeToMessageDeletes = (
   import('./socket').then(({ socketService }) => {
     socketService.on('message_deleted', (data: { messageId: string; conversationId: string }) => {
       if (data.conversationId === conversationId) {
+        // Update cache
+        chatCache.removeMessage(conversationId, data.messageId);
         onDelete(data.messageId);
       }
     });
@@ -262,6 +291,33 @@ export const subscribeToMessageDeletes = (
   return () => {
     import('./socket').then(({ socketService }) => {
       socketService.off('message_deleted');
+    });
+  };
+};
+
+// Subscribe to message read status updates
+export const subscribeToMessageReadStatus = (
+  conversationId: string,
+  onRead: (messageIds: string[], userId: string) => void
+) => {
+  import('./socket').then(({ socketService }) => {
+    socketService.on('messages_read', (data: { conversationId: string; messageIds: string[]; userId: string }) => {
+      if (data.conversationId === conversationId) {
+        // Update cache
+        data.messageIds.forEach(messageId => {
+          chatCache.updateMessage(conversationId, messageId, (msg) => ({
+            ...msg,
+            readBy: [...(msg.readBy || []), data.userId],
+          }));
+        });
+        onRead(data.messageIds, data.userId);
+      }
+    });
+  });
+
+  return () => {
+    import('./socket').then(({ socketService }) => {
+      socketService.off('messages_read');
     });
   };
 };
