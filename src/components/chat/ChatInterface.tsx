@@ -1,35 +1,38 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Phone, Video, Users, Send, Mic } from 'lucide-react';
+import { ArrowLeft, Phone, Video, Users, Send, Mic, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { Message, Conversation } from '@/types/chat';
 import * as chatService from '@/lib/chatService';
 import { MessageBubble } from './MessageBubble';
 import { CallDialog } from '@/components/chat/CallDialog';
+import { ChatMessagesSkeleton } from './ChatSkeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ChatInterfaceProps {
   conversation: Conversation;
   onBack: () => void;
-  onViewParticipants?: () => void;
 }
 
-export function ChatInterface({ conversation, onBack, onViewParticipants }: ChatInterfaceProps) {
+export function ChatInterface({ conversation, onBack }: ChatInterfaceProps) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [sending, setSending] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [showCallDialog, setShowCallDialog] = useState(false);
   const [callType, setCallType] = useState<'audio' | 'video'>('audio');
   const [isRecording, setIsRecording] = useState(false);
+  const [page, setPage] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const PAGE_SIZE = 25;
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -37,17 +40,33 @@ export function ChatInterface({ conversation, onBack, onViewParticipants }: Chat
     }, 100);
   }, []);
 
-  const loadMessages = useCallback(async () => {
+  const loadMessages = useCallback(async (pageNum: number = 1, append: boolean = false) => {
     try {
+      if (append) {
+        setLoadingMore(true);
+      }
+      
+      // TODO: Update API to support pagination
       const data = await chatService.fetchMessages(conversation.id);
-      setMessages(data);
-      scrollToBottom();
+      
+      // Simulate pagination (take last 25 * pageNum messages)
+      const paginatedData = data.slice(-PAGE_SIZE * pageNum);
+      
+      if (append) {
+        setMessages(paginatedData);
+      } else {
+        setMessages(paginatedData);
+        scrollToBottom();
+      }
+      
+      setHasMore(data.length > PAGE_SIZE * pageNum);
     } catch (error) {
       toast.error('Failed to load messages');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [conversation.id, scrollToBottom]);
+  }, [conversation.id, scrollToBottom, PAGE_SIZE]);
 
   const markAsRead = useCallback(async () => {
     try {
@@ -65,9 +84,22 @@ export function ChatInterface({ conversation, onBack, onViewParticipants }: Chat
     const unsubscribe = chatService.subscribeToMessages(conversation.id, (message) => {
       setMessages((prev) => [...prev, message]);
       scrollToBottom();
+      
+      // Show notification if message is from someone else
       if (message.senderId !== user?._id) {
+        // Import notification service dynamically
+        import('@/lib/notificationService').then(({ notificationService }) => {
+          notificationService.notifyNewMessage(
+            message.senderName,
+            message.content,
+            conversation.id
+          );
+        });
         markAsRead();
       }
+      
+      // Notify conversation list to refresh
+      window.dispatchEvent(new CustomEvent('refresh-conversations'));
     });
 
     // Subscribe to typing indicators
@@ -86,9 +118,23 @@ export function ChatInterface({ conversation, onBack, onViewParticipants }: Chat
       }
     );
 
+    // Subscribe to message edits
+    const unsubscribeEdit = chatService.subscribeToMessageEdits(conversation.id, (editedMessage) => {
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === editedMessage.id ? editedMessage : msg))
+      );
+    });
+
+    // Subscribe to message deletes
+    const unsubscribeDelete = chatService.subscribeToMessageDeletes(conversation.id, (messageId) => {
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+    });
+
     return () => {
       unsubscribe();
       unsubscribeTyping();
+      unsubscribeEdit();
+      unsubscribeDelete();
     };
   }, [conversation.id, loadMessages, markAsRead, scrollToBottom, user?._id]);
 
@@ -118,35 +164,17 @@ export function ChatInterface({ conversation, onBack, onViewParticipants }: Chat
     }
 
     if (typing) {
-      setIsTyping(true);
       chatService.sendTypingIndicator(conversation.id, user?.name || '', true);
       
       typingTimeoutRef.current = setTimeout(() => {
-        setIsTyping(false);
         chatService.sendTypingIndicator(conversation.id, user?.name || '', false);
       }, 3000);
     } else {
-      setIsTyping(false);
       chatService.sendTypingIndicator(conversation.id, user?.name || '', false);
     }
   };
 
-  const handleFileUpload = async (file: File) => {
-    try {
-      const url = await chatService.uploadChatFile(file);
-      const type = file.type.startsWith('image/') ? 'image' : 'file';
-      await chatService.sendMessage(
-        conversation.id,
-        file.name,
-        type,
-        url,
-        file.name
-      );
-      toast.success('File sent');
-    } catch (error) {
-      toast.error('Failed to upload file');
-    }
-  };
+
 
   const startCall = (type: 'audio' | 'video') => {
     setCallType(type);
@@ -179,10 +207,8 @@ export function ChatInterface({ conversation, onBack, onViewParticipants }: Chat
 
   const handleEditMessage = async (messageId: string, newContent: string) => {
     try {
-      // TODO: Implement edit message API
+      await chatService.editMessage(conversation.id, messageId, newContent);
       toast.success('Message edited');
-      // Refresh messages
-      loadMessages();
     } catch (error) {
       toast.error('Failed to edit message');
     }
@@ -190,10 +216,8 @@ export function ChatInterface({ conversation, onBack, onViewParticipants }: Chat
 
   const handleDeleteMessage = async (messageId: string) => {
     try {
-      // TODO: Implement delete message API
+      await chatService.deleteMessage(conversation.id, messageId);
       toast.success('Message deleted');
-      // Remove from local state
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
     } catch (error) {
       toast.error('Failed to delete message');
     }
@@ -284,20 +308,41 @@ export function ChatInterface({ conversation, onBack, onViewParticipants }: Chat
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1 p-4">
-          <div className="space-y-3">
-            {messages.map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                isOwn={message.senderId === user?._id}
-                onEdit={(id, content) => handleEditMessage(id, content)}
-                onDelete={(id) => handleDeleteMessage(id)}
-              />
-            ))}
-            <div ref={scrollRef} />
-          </div>
-        </ScrollArea>
+        <div 
+          className="flex-1 overflow-y-auto p-4"
+          ref={messagesContainerRef}
+          onScroll={(e) => {
+            const target = e.currentTarget;
+            if (target.scrollTop === 0 && hasMore && !loadingMore) {
+              // Load more messages when scrolled to top
+              const newPage = page + 1;
+              setPage(newPage);
+              loadMessages(newPage, true);
+            }
+          }}
+        >
+          {loading ? (
+            <ChatMessagesSkeleton />
+          ) : (
+            <div className="space-y-3">
+              {loadingMore && (
+                <div className="text-center py-2">
+                  <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+                </div>
+              )}
+              {messages.map((message) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  isOwn={message.senderId === user?._id}
+                  onEdit={(id, content) => handleEditMessage(id, content)}
+                  onDelete={(id) => handleDeleteMessage(id)}
+                />
+              ))}
+              <div ref={scrollRef} />
+            </div>
+          )}
+        </div>
 
         {/* Input */}
         <div className="p-4 border-t">

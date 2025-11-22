@@ -1,12 +1,16 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { authenticateToken } from '../middleware/auth.js';
 import { getDatabase } from '../db.js';
 
+interface AuthRequest extends Request {
+  userId?: string;
+}
+
 const router = express.Router();
 
 // Get all conversations for current user
-router.get('/conversations', authenticateToken, async (req: any, res) => {
+router.get('/conversations', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDatabase();
     const userId = req.userId;
@@ -60,7 +64,7 @@ router.get('/conversations', authenticateToken, async (req: any, res) => {
 });
 
 // Create a new conversation
-router.post('/conversations', authenticateToken, async (req: any, res) => {
+router.post('/conversations', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDatabase();
     const { type, participantIds, name, description } = req.body;
@@ -133,7 +137,7 @@ router.post('/conversations', authenticateToken, async (req: any, res) => {
 });
 
 // Get messages for a conversation
-router.get('/conversations/:id/messages', authenticateToken, async (req: any, res) => {
+router.get('/conversations/:id/messages', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDatabase();
     const conversationId = req.params.id;
@@ -168,7 +172,7 @@ router.get('/conversations/:id/messages', authenticateToken, async (req: any, re
 });
 
 // Send a message
-router.post('/conversations/:id/messages', authenticateToken, async (req: any, res) => {
+router.post('/conversations/:id/messages', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDatabase();
     const io = req.app.get('io');
@@ -230,7 +234,7 @@ router.post('/conversations/:id/messages', authenticateToken, async (req: any, r
 });
 
 // Mark messages as read
-router.post('/conversations/:id/read', authenticateToken, async (req: any, res) => {
+router.post('/conversations/:id/read', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDatabase();
     const conversationId = req.params.id;
@@ -269,7 +273,7 @@ router.post('/conversations/:id/read', authenticateToken, async (req: any, res) 
 });
 
 // Add participants to group
-router.post('/conversations/:id/participants', authenticateToken, async (req: any, res) => {
+router.post('/conversations/:id/participants', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDatabase();
     const conversationId = req.params.id;
@@ -308,7 +312,8 @@ router.post('/conversations/:id/participants', authenticateToken, async (req: an
     await db.collection('conversations').updateOne(
       { _id: new ObjectId(conversationId) },
       {
-        $push: { participants: { $each: newParticipants } },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        $push: { participants: { $each: newParticipants } } as any,
         $set: { updatedAt: new Date().toISOString() },
       }
     );
@@ -320,8 +325,89 @@ router.post('/conversations/:id/participants', authenticateToken, async (req: an
   }
 });
 
+// Edit a message
+router.put('/conversations/:conversationId/messages/:messageId', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const db = await getDatabase();
+    const io = req.app.get('io');
+    const { conversationId, messageId } = req.params;
+    const userId = req.userId;
+    const { content } = req.body;
+
+    // Verify message belongs to user
+    const message = await db.collection('messages').findOne({
+      _id: new ObjectId(messageId),
+      conversationId,
+      senderId: userId,
+    });
+
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found or not authorized' });
+    }
+
+    // Update message
+    await db.collection('messages').updateOne(
+      { _id: new ObjectId(messageId) },
+      {
+        $set: {
+          content,
+          editedAt: new Date().toISOString(),
+        },
+      }
+    );
+
+    const updatedMessage = await db.collection('messages').findOne({ _id: new ObjectId(messageId) });
+
+    // Emit update to conversation room
+    io.to(`conversation:${conversationId}`).emit('message_edited', {
+      ...updatedMessage,
+      id: updatedMessage?._id.toString(),
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error editing message:', error);
+    res.status(500).json({ error: 'Failed to edit message' });
+  }
+});
+
+// Delete a message
+router.delete('/conversations/:conversationId/messages/:messageId', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const db = await getDatabase();
+    const io = req.app.get('io');
+    const { conversationId, messageId } = req.params;
+    const userId = req.userId;
+
+    // Verify message belongs to user
+    const message = await db.collection('messages').findOne({
+      _id: new ObjectId(messageId),
+      conversationId,
+      senderId: userId,
+    });
+
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found or not authorized' });
+    }
+
+    // Delete message
+    await db.collection('messages').deleteOne({ _id: new ObjectId(messageId) });
+
+    // Emit delete to conversation room
+    io.to(`conversation:${conversationId}`).emit('message_deleted', {
+      messageId,
+      conversationId,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({ error: 'Failed to delete message' });
+  }
+});
+
 // Remove participant from group
-router.delete('/conversations/:id/participants/:participantId', authenticateToken, async (req: any, res) => {
+router.delete('/conversations/:id/participants/:participantId', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const db = await getDatabase();
     const conversationId = req.params.id;
@@ -339,7 +425,7 @@ router.delete('/conversations/:id/participants/:participantId', authenticateToke
     }
 
     const isAdmin = conversation.participants.some(
-      (p: any) => p.userId === userId && p.isAdmin
+      (p: { userId: string; isAdmin?: boolean }) => p.userId === userId && p.isAdmin
     );
     const isSelf = participantId === userId;
 
@@ -350,7 +436,8 @@ router.delete('/conversations/:id/participants/:participantId', authenticateToke
     await db.collection('conversations').updateOne(
       { _id: new ObjectId(conversationId) },
       {
-        $pull: { participants: { userId: participantId } },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        $pull: { participants: { userId: participantId } } as any,
         $set: { updatedAt: new Date().toISOString() },
       }
     );

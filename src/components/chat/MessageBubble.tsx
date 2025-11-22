@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Message } from '@/types/chat';
 import { formatDistanceToNow } from 'date-fns';
-import { File, Download, MoreVertical, Edit, Trash2, Check, X } from 'lucide-react';
+import { File, Download, MoreVertical, Edit, Trash2, Check, X, CheckCheck, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -153,11 +153,35 @@ export function MessageBubble({ message, isOwn, onEdit, onDelete }: MessageBubbl
         ) : (
           <>
             {renderContent()}
-            <div className={`text-xs mt-1 ${isOwn ? 'opacity-70' : 'text-muted-foreground'}`}>
-              {new Date(message.createdAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+            <div className={`text-xs mt-1 flex items-center gap-1 ${isOwn ? 'opacity-70 justify-end' : 'text-muted-foreground'}`}>
+              <span>
+                {new Date(message.createdAt).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+              {isOwn && (
+                <span className="flex items-center">
+                  {message.status === 'sending' && (
+                    <Clock className="h-3 w-3" />
+                  )}
+                  {message.status === 'sent' && (
+                    <Check className="h-3 w-3" />
+                  )}
+                  {message.status === 'delivered' && (
+                    <CheckCheck className="h-3 w-3" />
+                  )}
+                  {message.status === 'read' && (
+                    <CheckCheck className="h-3 w-3 text-blue-400" />
+                  )}
+                  {!message.status && message.readBy && message.readBy.length > 1 && (
+                    <CheckCheck className="h-3 w-3 text-blue-400" />
+                  )}
+                  {!message.status && message.readBy && message.readBy.length === 1 && (
+                    <CheckCheck className="h-3 w-3" />
+                  )}
+                </span>
+              )}
             </div>
           </>
         )}

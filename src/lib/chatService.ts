@@ -192,3 +192,76 @@ export const sendTypingIndicator = async (
     });
   });
 };
+
+// Edit a message
+export const editMessage = async (
+  conversationId: string,
+  messageId: string,
+  content: string
+): Promise<void> => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_URL}/conversations/${conversationId}/messages/${messageId}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ content }),
+  });
+  
+  if (!response.ok) throw new Error('Failed to edit message');
+};
+
+// Delete a message
+export const deleteMessage = async (
+  conversationId: string,
+  messageId: string
+): Promise<void> => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_URL}/conversations/${conversationId}/messages/${messageId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  
+  if (!response.ok) throw new Error('Failed to delete message');
+};
+
+// Subscribe to message edits
+export const subscribeToMessageEdits = (
+  conversationId: string,
+  onEdit: (message: Message) => void
+) => {
+  import('./socket').then(({ socketService }) => {
+    socketService.on('message_edited', (message: Message) => {
+      if (message.conversationId === conversationId) {
+        onEdit(message);
+      }
+    });
+  });
+
+  return () => {
+    import('./socket').then(({ socketService }) => {
+      socketService.off('message_edited');
+    });
+  };
+};
+
+// Subscribe to message deletes
+export const subscribeToMessageDeletes = (
+  conversationId: string,
+  onDelete: (messageId: string) => void
+) => {
+  import('./socket').then(({ socketService }) => {
+    socketService.on('message_deleted', (data: { messageId: string; conversationId: string }) => {
+      if (data.conversationId === conversationId) {
+        onDelete(data.messageId);
+      }
+    });
+  });
+
+  return () => {
+    import('./socket').then(({ socketService }) => {
+      socketService.off('message_deleted');
+    });
+  };
+};

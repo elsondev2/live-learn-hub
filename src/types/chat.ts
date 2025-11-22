@@ -13,6 +13,7 @@ export interface Message {
   createdAt: string;
   readBy: string[];
   replyTo?: string;
+  status?: 'sending' | 'sent' | 'delivered' | 'read'; // WhatsApp-style status
 }
 
 export interface Conversation {

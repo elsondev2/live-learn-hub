@@ -1,16 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Users, MessageSquare } from 'lucide-react';
+import { Search, Users, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { Conversation } from '@/types/chat';
 import * as chatService from '@/lib/chatService';
 import { formatDistanceToNow } from 'date-fns';
+import { ConversationListSkeleton } from './ChatSkeleton';
 
 interface ConversationListProps {
   onSelectConversation: (conversation: Conversation) => void;
@@ -74,6 +73,24 @@ export function ConversationList({
 
   useEffect(() => {
     loadConversations();
+
+    // Listen for conversation updates
+    const handleRefresh = () => {
+      loadConversations();
+    };
+    
+    window.addEventListener('refresh-conversations', handleRefresh);
+    
+    // Subscribe to new messages to update conversation list
+    import('@/lib/socket').then(({ socketService }) => {
+      socketService.on('new_message', () => {
+        loadConversations();
+      });
+    });
+
+    return () => {
+      window.removeEventListener('refresh-conversations', handleRefresh);
+    };
   }, []);
 
   useEffect(() => {
@@ -127,11 +144,9 @@ export function ConversationList({
       </div>
 
       {/* Conversations */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="p-8 text-center text-muted-foreground">
-            Loading conversations...
-          </div>
+          <ConversationListSkeleton />
         ) : filteredConversations.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground">
             <p>{searchQuery ? 'No conversations found' : 'No chats yet'}</p>
@@ -192,7 +207,7 @@ export function ConversationList({
             })}
           </div>
         )}
-      </ScrollArea>
+      </div>
     </div>
   );
 }
