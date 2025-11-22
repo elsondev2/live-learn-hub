@@ -43,6 +43,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(user);
         setSession(token);
         setUserRole(user.role);
+        
+        // Initialize Socket.io connection for existing session
+        socketService.connect();
+        socketService.emit('join_user_room', user._id);
       } else {
         localStorage.removeItem(TOKEN_KEY);
       }
@@ -65,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Initialize Socket.io connection
       socketService.connect();
+      socketService.emit('join_user_room', user._id);
 
       toast.success('Account created successfully!');
       navigate('/dashboard');
@@ -86,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Initialize Socket.io connection
       socketService.connect();
+      socketService.emit('join_user_room', user._id);
 
       toast.success('Signed in successfully!');
       navigate('/dashboard');

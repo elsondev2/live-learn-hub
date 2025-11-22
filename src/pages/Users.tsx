@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users as UsersIcon, GraduationCap, BookOpen, Loader2, User as UserIcon, X } from 'lucide-react';
+import { Users as UsersIcon, GraduationCap, BookOpen, Loader2, User as UserIcon, X, MessageSquare, Phone, Video } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/auth';
+import * as chatService from '@/lib/chatService';
 
 interface User {
   _id: string;
@@ -19,9 +22,12 @@ interface User {
 }
 
 export default function Users() {
+  const { user: currentUser, userRole } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [startingChat, setStartingChat] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -40,13 +46,36 @@ export default function Users() {
         throw new Error('Failed to fetch users');
       }
       
-      const data = await response.json();
+      let data: User[] = await response.json();
+      
+      // Filter based on role permissions
+      if (userRole === 'STUDENT') {
+        // Students can only see other students
+        data = data.filter((u) => u.role === 'STUDENT' && u._id !== currentUser?.id);
+      } else {
+        // Teachers can see everyone
+        data = data.filter((u) => u._id !== currentUser?.id);
+      }
+      
       setUsers(data);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startChat = async (userId: string) => {
+    setStartingChat(true);
+    try {
+      await chatService.createConversation('direct', [userId]);
+      toast.success('Chat started');
+      navigate('/chat');
+    } catch (error) {
+      toast.error('Failed to start chat');
+    } finally {
+      setStartingChat(false);
     }
   };
 
@@ -60,6 +89,13 @@ export default function Users() {
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const canChatWith = (user: User) => {
+    // Teachers can chat with anyone
+    if (userRole === 'TEACHER') return true;
+    // Students can only chat with other students
+    return user.role === 'STUDENT';
   };
 
   const UserCard = ({ user }: { user: User }) => (
@@ -82,6 +118,17 @@ export default function Users() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {canChatWith(user) && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => startChat(user._id)}
+                disabled={startingChat}
+              >
+                <MessageSquare className="h-4 w-4 mr-1" />
+                Chat
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -168,6 +215,23 @@ export default function Users() {
                     {selectedUser.role}
                   </Badge>
                 </div>
+
+                {/* Action Buttons */}
+                {canChatWith(selectedUser) && (
+                  <div className="flex gap-2 justify-center pt-2">
+                    <Button
+                      onClick={() => {
+                        startChat(selectedUser._id);
+                        setSelectedUser(null);
+                      }}
+                      disabled={startingChat}
+                      className="flex-1"
+                    >
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Message
+                    </Button>
+                  </div>
+                )}
 
                 {/* Bio */}
                 {selectedUser.bio ? (

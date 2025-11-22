@@ -12,6 +12,7 @@ import {
   LogOut,
   User,
   X,
+  MessageSquare,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -26,11 +27,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Home },
+    { path: '/chat', label: 'Messages', icon: MessageSquare },
+    { path: '/users', label: 'Community', icon: User },
     { path: '/audio/player', label: 'Audio Player', icon: Music },
     { path: '/notes/new', label: 'New Note', icon: FileText },
     { path: '/mindmaps/new', label: 'New Mind Map', icon: Network },
     { path: '/audio/upload', label: 'Upload Audio', icon: Music },
-    { path: '/users', label: 'Community', icon: User },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
 

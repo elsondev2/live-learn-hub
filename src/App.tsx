@@ -25,6 +25,7 @@ import AppearanceSettings from "./pages/settings/AppearanceSettings";
 import NotFound from "./pages/NotFound";
 import Users from "./pages/Users";
 import AudioPlayer from "./pages/AudioPlayer";
+import Chat from "./pages/Chat";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
+              <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
               <Route path="/audio/player" element={<ProtectedRoute><AudioPlayer /></ProtectedRoute>} />
               <Route path="/notes/:id" element={<ProtectedRoute><NoteEditor /></ProtectedRoute>} />
               <Route path="/audio/upload" element={<ProtectedRoute requiredRole="TEACHER"><AudioUpload /></ProtectedRoute>} />
