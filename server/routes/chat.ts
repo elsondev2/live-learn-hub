@@ -6,10 +6,10 @@ import { getDatabase } from '../db.js';
 const router = express.Router();
 
 // Get all conversations for current user
-router.get('/conversations', authenticateToken, async (req, res) => {
+router.get('/conversations', authenticateToken, async (req: any, res) => {
   try {
     const db = await getDatabase();
-    const userId = req.user.userId;
+    const userId = req.userId;
 
     console.log('Fetching conversations for user:', userId);
 
@@ -60,11 +60,11 @@ router.get('/conversations', authenticateToken, async (req, res) => {
 });
 
 // Create a new conversation
-router.post('/conversations', authenticateToken, async (req, res) => {
+router.post('/conversations', authenticateToken, async (req: any, res) => {
   try {
     const db = await getDatabase();
     const { type, participantIds, name, description } = req.body;
-    const userId = req.user.userId;
+    const userId = req.userId;
 
     // Validate participants
     if (!participantIds || participantIds.length === 0) {
@@ -133,11 +133,11 @@ router.post('/conversations', authenticateToken, async (req, res) => {
 });
 
 // Get messages for a conversation
-router.get('/conversations/:id/messages', authenticateToken, async (req, res) => {
+router.get('/conversations/:id/messages', authenticateToken, async (req: any, res) => {
   try {
     const db = await getDatabase();
     const conversationId = req.params.id;
-    const userId = req.user.userId;
+    const userId = req.userId;
 
     // Verify user is participant
     const conversation = await db.collection('conversations').findOne({
@@ -168,12 +168,12 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
 });
 
 // Send a message
-router.post('/conversations/:id/messages', authenticateToken, async (req, res) => {
+router.post('/conversations/:id/messages', authenticateToken, async (req: any, res) => {
   try {
     const db = await getDatabase();
     const io = req.app.get('io');
     const conversationId = req.params.id;
-    const userId = req.user.userId;
+    const userId = req.userId;
     const { content, type = 'text', fileUrl, fileName, replyTo } = req.body;
 
     // Verify user is participant
@@ -230,11 +230,11 @@ router.post('/conversations/:id/messages', authenticateToken, async (req, res) =
 });
 
 // Mark messages as read
-router.post('/conversations/:id/read', authenticateToken, async (req, res) => {
+router.post('/conversations/:id/read', authenticateToken, async (req: any, res) => {
   try {
     const db = await getDatabase();
     const conversationId = req.params.id;
-    const userId = req.user.userId;
+    const userId = req.userId;
 
     // Update participant's lastReadAt
     await db.collection('conversations').updateOne(
@@ -269,11 +269,11 @@ router.post('/conversations/:id/read', authenticateToken, async (req, res) => {
 });
 
 // Add participants to group
-router.post('/conversations/:id/participants', authenticateToken, async (req, res) => {
+router.post('/conversations/:id/participants', authenticateToken, async (req: any, res) => {
   try {
     const db = await getDatabase();
     const conversationId = req.params.id;
-    const userId = req.user.userId;
+    const userId = req.userId;
     const { participantIds } = req.body;
 
     // Verify user is admin
@@ -321,12 +321,12 @@ router.post('/conversations/:id/participants', authenticateToken, async (req, re
 });
 
 // Remove participant from group
-router.delete('/conversations/:id/participants/:participantId', authenticateToken, async (req, res) => {
+router.delete('/conversations/:id/participants/:participantId', authenticateToken, async (req: any, res) => {
   try {
     const db = await getDatabase();
     const conversationId = req.params.id;
     const participantId = req.params.participantId;
-    const userId = req.user.userId;
+    const userId = req.userId;
 
     // Verify user is admin or removing themselves
     const conversation = await db.collection('conversations').findOne({

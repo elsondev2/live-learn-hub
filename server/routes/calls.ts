@@ -6,11 +6,11 @@ import { getDatabase } from '../db.js';
 const router = express.Router();
 
 // Initiate a call
-router.post('/initiate', authenticateToken, async (req, res) => {
+router.post('/initiate', authenticateToken, async (req: any, res) => {
   try {
     const db = await getDatabase();
     const io = req.app.get('io');
-    const userId = req.user.userId;
+    const userId = req.userId;
     const { conversationId, type } = req.body;
 
     // Verify user is participant
@@ -64,12 +64,12 @@ router.post('/initiate', authenticateToken, async (req, res) => {
 });
 
 // Join a call
-router.post('/:id/join', authenticateToken, async (req, res) => {
+router.post('/:id/join', authenticateToken, async (req: any, res) => {
   try {
     const db = await getDatabase();
     const io = req.app.get('io');
     const callId = req.params.id;
-    const userId = req.user.userId;
+    const userId = req.userId;
 
     // Get user info
     const user = await db.collection('users').findOne({ _id: new ObjectId(userId) });
@@ -110,12 +110,12 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
 });
 
 // End a call
-router.post('/:id/end', authenticateToken, async (req, res) => {
+router.post('/:id/end', authenticateToken, async (req: any, res) => {
   try {
     const db = await getDatabase();
     const io = req.app.get('io');
     const callId = req.params.id;
-    const userId = req.user.userId;
+    const userId = req.userId;
 
     const call = await db.collection('calls').findOne({ _id: new ObjectId(callId) });
 
@@ -159,11 +159,11 @@ router.post('/:id/end', authenticateToken, async (req, res) => {
 });
 
 // Send WebRTC signaling data
-router.post('/:id/signal', authenticateToken, async (req, res) => {
+router.post('/:id/signal', authenticateToken, async (req: any, res) => {
   try {
     const io = req.app.get('io');
     const callId = req.params.id;
-    const userId = req.user.userId;
+    const userId = req.userId;
     const { targetUserId, signal } = req.body;
 
     // Forward signaling data to target user
