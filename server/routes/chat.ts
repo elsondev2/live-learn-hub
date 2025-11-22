@@ -11,6 +11,8 @@ router.get('/conversations', authenticateToken, async (req, res) => {
     const db = await getDatabase();
     const userId = req.user.userId;
 
+    console.log('Fetching conversations for user:', userId);
+
     const conversations = await db
       .collection('conversations')
       .find({
@@ -19,6 +21,8 @@ router.get('/conversations', authenticateToken, async (req, res) => {
       })
       .sort({ updatedAt: -1 })
       .toArray();
+
+    console.log(`Found ${conversations.length} conversations`);
 
     // Populate last message for each conversation
     const conversationsWithMessages = await Promise.all(
@@ -46,7 +50,12 @@ router.get('/conversations', authenticateToken, async (req, res) => {
     res.json(conversationsWithMessages);
   } catch (error) {
     console.error('Error fetching conversations:', error);
-    res.status(500).json({ error: 'Failed to fetch conversations' });
+    console.error('Error details:', error instanceof Error ? error.message : error);
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+    res.status(500).json({ 
+      error: 'Failed to fetch conversations',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 });
 

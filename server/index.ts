@@ -101,9 +101,15 @@ io.on('connection', (socket) => {
   });
 });
 
-httpServer.listen(PORT, () => {
+// Initialize database collections
+import { initializeCollections } from './db/initCollections.js';
+
+httpServer.listen(PORT, async () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log('Socket.io enabled for real-time updates');
+  
+  // Initialize collections on startup
+  await initializeCollections();
 });
 
 // Export io for use in routes
