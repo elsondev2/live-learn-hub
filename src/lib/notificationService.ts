@@ -51,9 +51,21 @@ class NotificationService {
     }
   }
 
-  notifyNewMessage(senderName: string, message: string, conversationId: string) {
+  notifyNewMessage(
+    senderName: string, 
+    message: string, 
+    conversationId: string, 
+    senderAvatar?: string,
+    isInActiveChat: boolean = false
+  ) {
+    // Don't show notification if user is already in this chat
+    if (isInActiveChat) {
+      return;
+    }
+
     this.showNotification(`New message from ${senderName}`, {
       body: message,
+      icon: senderAvatar || '/logo.png',
       tag: conversationId, // Prevents duplicate notifications
       requireInteraction: false,
     });

@@ -75,22 +75,25 @@ io.on('connection', (socket) => {
   });
 
   // WebRTC signaling
-  socket.on('call_offer', ({ callId, targetUserId, offer }) => {
-    io.to(`user:${targetUserId}`).emit('call_offer', {
+  socket.on('call_offer', ({ callId, conversationId, offer }) => {
+    console.log(`Call offer for conversation ${conversationId}`);
+    socket.to(`conversation:${conversationId}`).emit('call_offer', {
       callId,
       offer,
     });
   });
 
-  socket.on('call_answer', ({ callId, targetUserId, answer }) => {
-    io.to(`user:${targetUserId}`).emit('call_answer', {
+  socket.on('call_answer', ({ callId, conversationId, answer }) => {
+    console.log(`Call answer for conversation ${conversationId}`);
+    socket.to(`conversation:${conversationId}`).emit('call_answer', {
       callId,
       answer,
     });
   });
 
-  socket.on('ice_candidate', ({ callId, targetUserId, candidate }) => {
-    io.to(`user:${targetUserId}`).emit('ice_candidate', {
+  socket.on('ice_candidate', ({ callId, conversationId, candidate }) => {
+    console.log(`ICE candidate for conversation ${conversationId}`);
+    socket.to(`conversation:${conversationId}`).emit('ice_candidate', {
       callId,
       candidate,
     });

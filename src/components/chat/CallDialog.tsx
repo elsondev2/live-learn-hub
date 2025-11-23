@@ -28,6 +28,7 @@ export function CallDialog({ conversation, callType, onClose }: CallDialogProps)
 
   useEffect(() => {
     initiateCall();
+    setupSignaling();
     
     return () => {
       endCall();
@@ -36,6 +37,44 @@ export function CallDialog({ conversation, callType, onClose }: CallDialogProps)
       }
     };
   }, []);
+
+  const setupSignaling = () => {
+    import('@/lib/socket').then(({ socketService }) => {
+      // Listen for call offer (when receiving a call)
+      socketService.on('call_offer', async ({ callId, offer }) => {
+        try {
+          const answer = await callService.createAnswer(offer);
+          socketService.emit('call_answer', {
+            callId,
+            conversationId: conversation.id,
+            answer,
+          });
+        } catch (error) {
+          console.error('Error creating answer:', error);
+        }
+      });
+
+      // Listen for call answer (when call is accepted)
+      socketService.on('call_answer', async ({ answer }) => {
+        try {
+          await callService.setRemoteDescription(answer);
+          setIsConnected(true);
+          startDurationTimer();
+        } catch (error) {
+          console.error('Error setting remote description:', error);
+        }
+      });
+
+      // Listen for ICE candidates
+      socketService.on('ice_candidate', async ({ candidate }) => {
+        try {
+          await callService.addIceCandidate(candidate);
+        } catch (error) {
+          console.error('Error adding ICE candidate:', error);
+        }
+      });
+    });
+  };
 
   const initiateCall = async () => {
     try {
@@ -56,19 +95,30 @@ export function CallDialog({ conversation, callType, onClose }: CallDialogProps)
           if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = remoteStream;
           }
-          setIsConnected(true);
-          startDurationTimer();
         },
         (candidate) => {
-          // Send ICE candidate to other peer via signaling server
-          console.log('ICE candidate:', candidate);
+          // Send ICE candidate to other peer via Socket.io
+          import('@/lib/socket').then(({ socketService }) => {
+            socketService.emit('ice_candidate', {
+              callId: session.id,
+              conversationId: conversation.id,
+              candidate,
+            });
+          });
         }
       );
 
       // Create and send offer
       const offer = await callService.createOffer();
-      // Send offer to other peer via signaling server
-      console.log('Offer created:', offer);
+      
+      // Send offer to other peer via Socket.io
+      import('@/lib/socket').then(({ socketService }) => {
+        socketService.emit('call_offer', {
+          callId: session.id,
+          conversationId: conversation.id,
+          offer,
+        });
+      });
 
       toast.success('Calling...');
     } catch (error) {

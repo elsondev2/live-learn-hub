@@ -89,17 +89,28 @@ export function ChatInterface({ conversation, onBack }: ChatInterfaceProps) {
 
     // Subscribe to new messages
     const unsubscribe = chatService.subscribeToMessages(conversation.id, (message) => {
-      setMessages((prev) => [...prev, message]);
+      // Check if this message is already in the list (optimistic update)
+      setMessages((prev) => {
+        const exists = prev.some(m => m.id === message.id);
+        if (exists) {
+          // Update the existing message (remove sending status)
+          return prev.map(m => m.id === message.id ? message : m);
+        }
+        return [...prev, message];
+      });
       scrollToBottom();
       
       // Show notification if message is from someone else
       if (message.senderId !== user?._id) {
         // Import notification service dynamically
         import('@/lib/notificationService').then(({ notificationService }) => {
+          // Pass true to indicate user is in active chat (no notification needed)
           notificationService.notifyNewMessage(
             message.senderName,
             message.content,
-            conversation.id
+            conversation.id,
+            message.senderAvatar,
+            true // User is in this chat
           );
         });
         markAsRead();
@@ -172,12 +183,35 @@ export function ChatInterface({ conversation, onBack }: ChatInterfaceProps) {
     setNewMessage(''); // Clear immediately like WhatsApp
     handleTyping(false);
 
+    // Optimistic UI: Add message immediately with sending status
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: tempId,
+      conversationId: conversation.id,
+      senderId: user?._id || '',
+      senderName: user?.name || '',
+      senderAvatar: user?.avatar_url,
+      content: messageToSend,
+      type: 'text',
+      createdAt: new Date().toISOString(),
+      readBy: [user?._id || ''],
+      status: 'sending',
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+    scrollToBottom();
+
     setSending(true);
     try {
-      await chatService.sendMessage(conversation.id, messageToSend);
-      scrollToBottom();
+      const sentMessage = await chatService.sendMessage(conversation.id, messageToSend);
+      // Replace temp message with real one
+      setMessages((prev) => 
+        prev.map(m => m.id === tempId ? { ...sentMessage, status: 'sent' } : m)
+      );
     } catch (error) {
       toast.error('Failed to send message');
+      // Remove failed message
+      setMessages((prev) => prev.filter(m => m.id !== tempId));
       setNewMessage(messageToSend); // Restore message on error
     } finally {
       setSending(false);

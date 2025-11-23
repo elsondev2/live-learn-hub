@@ -81,17 +81,35 @@ export function ConversationList({
     
     window.addEventListener('refresh-conversations', handleRefresh);
     
-    // Subscribe to new messages to update conversation list
+    // Subscribe to new messages to update conversation list and show notifications
     import('@/lib/socket').then(({ socketService }) => {
-      socketService.on('new_message', () => {
+      socketService.on('new_message', (message) => {
+        // Reload conversations to update last message
         loadConversations();
+        
+        // Show notification if message is from someone else and not in active chat
+        if (message.senderId !== user?._id) {
+          import('@/lib/notificationService').then(({ notificationService }) => {
+            // Get conversation to check if it's the active one
+            const activeConvId = window.location.hash.split('/').pop();
+            const isActiveChat = activeConvId === message.conversationId;
+            
+            notificationService.notifyNewMessage(
+              message.senderName,
+              message.content,
+              message.conversationId,
+              message.senderAvatar,
+              isActiveChat
+            );
+          });
+        }
       });
     });
 
     return () => {
       window.removeEventListener('refresh-conversations', handleRefresh);
     };
-  }, []);
+  }, [user?._id]);
 
   useEffect(() => {
     if (searchQuery.trim()) {
