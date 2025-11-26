@@ -108,6 +108,16 @@ Comprehensive overhaul of the mind map editor to make it more flexible, robust, 
 
 ## Changelog
 
+### 2024-11-26 - Mobile Optimization & UI Reorganization
+- Completely redesigned toolbar for desktop and mobile
+- Desktop: Organized into logical groups with separators
+- Mobile: Compact touch-friendly toolbar with overflow menu
+- Enhanced connection style picker with descriptions (Curved, Direct, Sharp, Smooth Step)
+- Separate desktop and mobile headers
+- Touch-optimized button sizes (h-9 for mobile)
+- Color picker as popover with larger touch targets
+- All features accessible via "More" menu on mobile
+
 ### 2024-11-26 - Phase 3 Complete
 - Added 8 pre-built templates with template picker dialog
 - Added 8 color themes with one-click application

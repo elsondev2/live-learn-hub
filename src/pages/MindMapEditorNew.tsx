@@ -29,7 +29,14 @@ import { CustomNodeEnhanced, NodeIconType } from '@/components/CustomNodeEnhance
 import { MindMapTemplates } from '@/components/MindMapTemplates';
 import { MindMapThemePicker } from '@/components/MindMapThemePicker';
 import { MindMapSearch } from '@/components/MindMapSearch';
-import { ArrowLeft, Save, Loader2, LayoutGrid, Upload } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, LayoutGrid, Upload, MoreVertical } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import * as services from '@/lib/services';
 import { treeLayout, radialLayout, forceLayout, snapToGrid } from '@/lib/mindmap-layouts';
@@ -510,26 +517,30 @@ function MindMapEditorInner() {
   return (
     <DashboardLayout>
       <div className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-4rem)]">
-        {/* Header */}
-        <div className="border-b bg-card p-3 flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            <span className="hidden sm:inline">Back</span>
+        {/* Header - Desktop */}
+        <div className="hidden md:flex border-b bg-card px-3 py-2 items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} className="h-8">
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Back
           </Button>
+
+          <Separator orientation="vertical" className="h-6" />
 
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Mind map title..."
-            className="flex-1 min-w-[150px] max-w-md font-semibold"
+            placeholder="Untitled Mind Map"
+            className="flex-1 max-w-sm h-8 font-medium border-0 bg-transparent focus-visible:ring-1 px-2"
             disabled={readonly}
           />
 
+          <div className="flex-1" />
+
           {!readonly && (
-            <>
-              <Button variant="outline" size="sm" onClick={() => setShowTemplates(true)}>
-                <LayoutGrid className="h-4 w-4 mr-1" />
-                <span className="hidden sm:inline">Templates</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowTemplates(true)} className="h-8">
+                <LayoutGrid className="h-4 w-4 mr-1.5" />
+                Templates
               </Button>
 
               <MindMapThemePicker currentTheme={currentTheme} onSelectTheme={handleApplyTheme} />
@@ -538,23 +549,69 @@ function MindMapEditorInner() {
 
               <label className="cursor-pointer">
                 <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
-                <Button variant="outline" size="sm" asChild>
-                  <span><Upload className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Import</span></span>
+                <Button variant="outline" size="sm" className="h-8" asChild>
+                  <span><Upload className="h-4 w-4 mr-1.5" />Import</span>
                 </Button>
               </label>
-            </>
+
+              <Separator orientation="vertical" className="h-6" />
+
+              <Button onClick={handleSave} disabled={saving} size="sm" className="h-8">
+                {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
           )}
 
           {readonly && (
-            <div className="text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded-md">View Only</div>
+            <div className="text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-md">View Only</div>
           )}
+        </div>
 
-          {canEdit && (
-            <Button onClick={handleSave} disabled={saving} size="sm">
-              {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
-              {saving ? 'Saving...' : 'Save'}
+        {/* Header - Mobile */}
+        <div className="md:hidden border-b bg-card">
+          <div className="flex items-center gap-2 px-3 py-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} className="h-9 w-9 p-0">
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-          )}
+
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Untitled"
+              className="flex-1 h-9 font-medium text-base"
+              disabled={readonly}
+            />
+
+            {readonly ? (
+              <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">View Only</div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 w-9 p-0">
+                      <MoreVertical className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => setShowTemplates(true)}>
+                      <LayoutGrid className="h-4 w-4 mr-2" /> Templates
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <label className="cursor-pointer flex items-center">
+                        <Upload className="h-4 w-4 mr-2" /> Import JSON
+                        <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
+                      </label>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button onClick={handleSave} disabled={saving} size="sm" className="h-9">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
 
