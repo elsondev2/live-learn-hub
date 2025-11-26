@@ -150,7 +150,7 @@ function MindMapEditorInner() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [readonly, selectedNodes, clipboard, history, historyIndex, nodes, edges]);
+  }, [readonly, selectedNodes, clipboard, history, historyIndex, nodes, edges, handleDeleteSelected, handleCopy, handlePaste, handleUndo, handleRedo, setNodes, setEdges, handleAddChildNode]);
 
 
   const fetchMindMap = async () => {
@@ -515,8 +515,8 @@ function MindMapEditorInner() {
   }
 
   return (
-    <DashboardLayout>
-      <div className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-4rem)]">
+    <DashboardLayout noPadding>
+      <div className="flex flex-col h-[calc(100vh-4rem)] lg:h-screen">
         {/* Header - Desktop */}
         <div className="hidden md:flex border-b bg-card px-3 py-2 items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} className="h-8">
@@ -661,8 +661,9 @@ function MindMapEditorInner() {
             selectionMode={SelectionMode.Partial}
             selectNodesOnDrag={false}
             panOnScroll
-            panOnDrag={[1, 2]}
-            selectionOnDrag
+            panOnDrag
+            zoomOnScroll
+            zoomOnPinch
             nodesDraggable={!readonly}
             nodesConnectable={!readonly}
             elementsSelectable={true}

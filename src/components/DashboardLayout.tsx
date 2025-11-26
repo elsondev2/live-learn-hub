@@ -6,9 +6,10 @@ import { Menu } from 'lucide-react';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  noPadding?: boolean;
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, noPadding }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const touchStartX = useRef<number>(0);
@@ -94,7 +95,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="p-4 md:p-6 lg:p-8">{children}</main>
+        <main className={noPadding ? '' : 'p-4 md:p-6 lg:p-8'}>{children}</main>
       </div>
 
       {/* Login Tip */}
