@@ -16,7 +16,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import NoteEditor from "./pages/NoteEditor";
 import AudioUpload from "./pages/AudioUpload";
-import MindMapEditor from "./pages/MindMapEditor.mobile";
+import MindMapEditor from "./pages/MindMapEditorNew";
 import AccountSettings from "./pages/AccountSettings";
 import ProfileSettings from "./pages/settings/ProfileSettings";
 import SecuritySettings from "./pages/settings/SecuritySettings";
