@@ -106,10 +106,44 @@ function MindMapEditorInner() {
   }, [id, loading]);
 
 
+  // History management (defined first so it can be used in other hooks)
+  const addToHistory = useCallback((newNodes: Node[], newEdges: Edge[]) => {
+    if (isUndoRedo.current) { isUndoRedo.current = false; return; }
+    setHistory((prev) => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push({ nodes: newNodes, edges: newEdges });
+      if (newHistory.length > MAX_HISTORY) newHistory.shift();
+      return newHistory;
+    });
+    setHistoryIndex((prev) => Math.min(prev + 1, MAX_HISTORY - 1));
+  }, [historyIndex]);
+
   // Initialize or fetch mind map
   useEffect(() => {
+    const fetchData = async () => {
+      if (!user || !id) return;
+      setLoading(true);
+      try {
+        const data = await services.getMindMap(id, user._id.toString());
+        if (data) {
+          setTitle(data.title);
+          setMapOwnerId(data.user_id);
+          const nodesData = Array.isArray(data.nodes) ? data.nodes : [];
+          const edgesData = Array.isArray(data.edges) ? data.edges : [];
+          setNodes(nodesData);
+          setEdges(edgesData);
+          addToHistory(nodesData, edgesData);
+        }
+      } catch (error) {
+        console.error('Error fetching mind map:', error);
+        toast.error('Failed to load mind map');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (id && id !== 'new' && user) {
-      fetchMindMap();
+      fetchData();
     } else if (id === 'new') {
       const initialNode: Node = {
         id: '1',
@@ -121,7 +155,7 @@ function MindMapEditorInner() {
       addToHistory([initialNode], []);
       setLoading(false);
     }
-  }, [addToHistory, fetchMindMap, id, setNodes, user]);
+  }, [id, user, setNodes, setEdges, addToHistory]);
 
   // Listen for inline label changes
   useEffect(() => {
@@ -134,43 +168,6 @@ function MindMapEditorInner() {
     window.addEventListener('node-label-change', handleLabelChange as EventListener);
     return () => window.removeEventListener('node-label-change', handleLabelChange as EventListener);
   }, [setNodes]);
-
-
-
-
-  const fetchMindMap = async () => {
-    if (!user || !id) return;
-    setLoading(true);
-    try {
-      const data = await services.getMindMap(id, user._id.toString());
-      if (data) {
-        setTitle(data.title);
-        setMapOwnerId(data.user_id);
-        const nodesData = Array.isArray(data.nodes) ? data.nodes : [];
-        const edgesData = Array.isArray(data.edges) ? data.edges : [];
-        setNodes(nodesData);
-        setEdges(edgesData);
-        addToHistory(nodesData, edgesData);
-      }
-    } catch (error) {
-      console.error('Error fetching mind map:', error);
-      toast.error('Failed to load mind map');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // History management
-  const addToHistory = useCallback((newNodes: Node[], newEdges: Edge[]) => {
-    if (isUndoRedo.current) { isUndoRedo.current = false; return; }
-    setHistory((prev) => {
-      const newHistory = prev.slice(0, historyIndex + 1);
-      newHistory.push({ nodes: newNodes, edges: newEdges });
-      if (newHistory.length > MAX_HISTORY) newHistory.shift();
-      return newHistory;
-    });
-    setHistoryIndex((prev) => Math.min(prev + 1, MAX_HISTORY - 1));
-  }, [historyIndex]);
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
