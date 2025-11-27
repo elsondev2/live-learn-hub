@@ -30,7 +30,13 @@ import { MindMapTemplates } from '@/components/MindMapTemplates';
 import { MindMapThemePicker } from '@/components/MindMapThemePicker';
 import { MindMapSearch } from '@/components/MindMapSearch';
 import { MindMapAIDialog } from '@/components/MindMapAIDialog';
-import { ArrowLeft, Save, Loader2, LayoutGrid, Upload, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, LayoutGrid, Upload, MoreVertical, Maximize, ZoomIn, ZoomOut, Hand, MousePointer2 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 import {
   DropdownMenu,
@@ -76,6 +82,7 @@ function MindMapEditorInner() {
   const [connectionStyle, setConnectionStyle] = useState('bezier');
   const [enableSnapToGrid, setEnableSnapToGrid] = useState(false);
   const [currentTheme, setCurrentTheme] = useState('default');
+  const [interactionMode, setInteractionMode] = useState<'select' | 'pan'>('select');
 
   // History for undo/redo
   const [history, setHistory] = useState<HistoryState[]>([]);
@@ -502,6 +509,7 @@ function MindMapEditorInner() {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
 
+      // Standard shortcuts
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); handleDeleteSelected(); }
       else if ((e.ctrlKey || e.metaKey) && e.key === 'c') { e.preventDefault(); handleCopy(); }
       else if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); handlePaste(); }
@@ -510,6 +518,12 @@ function MindMapEditorInner() {
       else if ((e.ctrlKey || e.metaKey) && e.key === 'a') { e.preventDefault(); setNodes((nds) => nds.map((n) => ({ ...n, selected: true }))); }
       else if (e.key === 'Escape') { setNodes((nds) => nds.map((n) => ({ ...n, selected: false }))); setEdges((eds) => eds.map((ed) => ({ ...ed, selected: false }))); }
       else if (e.key === 'Tab' && selectedNodes.length === 1) { e.preventDefault(); handleAddChildNode(); }
+      // Number shortcuts for mini toolbar (1-5)
+      else if (e.key === '1') { setInteractionMode('select'); }
+      else if (e.key === '2') { setInteractionMode('pan'); }
+      else if (e.key === '3') { zoomIn(); }
+      else if (e.key === '4') { zoomOut(); }
+      else if (e.key === '5') { fitView({ padding: 0.2 }); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -671,14 +685,15 @@ function MindMapEditorInner() {
             minZoom={0.1}
             maxZoom={4}
             selectionMode={SelectionMode.Partial}
-            selectNodesOnDrag={false}
+            selectNodesOnDrag={interactionMode === 'select'}
             panOnScroll
-            panOnDrag
+            panOnDrag={interactionMode === 'pan'}
             zoomOnScroll
             zoomOnPinch
             nodesDraggable={!readonly}
             nodesConnectable={!readonly}
-            elementsSelectable={true}
+            elementsSelectable={interactionMode === 'select'}
+            selectionOnDrag={interactionMode === 'select'}
             defaultEdgeOptions={{
               type: connectionStyle,
               animated: true,
@@ -686,16 +701,97 @@ function MindMapEditorInner() {
               markerEnd: { type: MarkerType.ArrowClosed, color: nodeColor },
             }}
           >
-            <Controls showInteractive={!readonly} />
+            <Controls showInteractive={!readonly} className="hidden" />
             <MiniMap
               nodeColor={(node) => (node.data?.color as string) || '#3b82f6'}
               maskColor="rgba(0, 0, 0, 0.1)"
               className="bg-card/80 backdrop-blur-sm rounded-lg"
             />
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+            
+            {/* Bottom left info panel */}
             <Panel position="bottom-left" className="text-xs text-muted-foreground bg-card/80 px-2 py-1 rounded">
               {nodes.length} nodes • {edges.length} connections
               {selectedNodes.length > 0 && ` • ${selectedNodes.length} selected`}
+            </Panel>
+
+            {/* Right side mini toolbar - Desktop only */}
+            <Panel position="top-right" className="hidden md:block">
+              <TooltipProvider delayDuration={100}>
+                <div className="flex flex-col gap-1 bg-card/95 backdrop-blur-sm border rounded-lg p-1.5 shadow-lg">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={interactionMode === 'select' ? 'default' : 'ghost'}
+                        size="sm"
+                        className="h-9 w-9 p-0"
+                        onClick={() => setInteractionMode('select')}
+                      >
+                        <MousePointer2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">Select Mode (1)</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={interactionMode === 'pan' ? 'default' : 'ghost'}
+                        size="sm"
+                        className="h-9 w-9 p-0"
+                        onClick={() => setInteractionMode('pan')}
+                      >
+                        <Hand className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">Pan Mode (2)</TooltipContent>
+                  </Tooltip>
+
+                  <Separator className="my-1" />
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 w-9 p-0"
+                        onClick={() => zoomIn()}
+                      >
+                        <ZoomIn className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">Zoom In (3)</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 w-9 p-0"
+                        onClick={() => zoomOut()}
+                      >
+                        <ZoomOut className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">Zoom Out (4)</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 w-9 p-0"
+                        onClick={() => fitView({ padding: 0.2 })}
+                      >
+                        <Maximize className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">Fit View (5)</TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
             </Panel>
           </ReactFlow>
         </div>
