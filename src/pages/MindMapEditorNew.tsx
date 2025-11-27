@@ -29,6 +29,7 @@ import { CustomNodeEnhanced, NodeIconType } from '@/components/CustomNodeEnhance
 import { MindMapTemplates } from '@/components/MindMapTemplates';
 import { MindMapThemePicker } from '@/components/MindMapThemePicker';
 import { MindMapSearch } from '@/components/MindMapSearch';
+import { MindMapAIDialog } from '@/components/MindMapAIDialog';
 import { ArrowLeft, Save, Loader2, LayoutGrid, Upload, MoreVertical } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -87,6 +88,9 @@ function MindMapEditorInner() {
   // Phase 3: Templates & Search
   const [showTemplates, setShowTemplates] = useState(false);
   const [highlightedNodes, setHighlightedNodes] = useState<string[]>([]);
+  
+  // AI Dialog
+  const [showAIDialog, setShowAIDialog] = useState(false);
 
   // Permissions
   const isOwner = user && (id === 'new' || mapOwnerId === user._id.toString());
@@ -117,7 +121,7 @@ function MindMapEditorInner() {
       addToHistory([initialNode], []);
       setLoading(false);
     }
-  }, [id, user]);
+  }, [addToHistory, fetchMindMap, id, setNodes, user]);
 
   // Listen for inline label changes
   useEffect(() => {
@@ -131,26 +135,7 @@ function MindMapEditorInner() {
     return () => window.removeEventListener('node-label-change', handleLabelChange as EventListener);
   }, [setNodes]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    if (readonly) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
 
-      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); handleDeleteSelected(); }
-      else if ((e.ctrlKey || e.metaKey) && e.key === 'c') { e.preventDefault(); handleCopy(); }
-      else if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); handlePaste(); }
-      else if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo(); }
-      else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); handleRedo(); }
-      else if ((e.ctrlKey || e.metaKey) && e.key === 'a') { e.preventDefault(); setNodes((nds) => nds.map((n) => ({ ...n, selected: true }))); }
-      else if (e.key === 'Escape') { setNodes((nds) => nds.map((n) => ({ ...n, selected: false }))); setEdges((eds) => eds.map((e) => ({ ...e, selected: false }))); }
-      else if (e.key === 'Tab' && selectedNodes.length === 1) { e.preventDefault(); handleAddChildNode(); }
-      else if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); /* Search handled by component */ }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [readonly, selectedNodes, clipboard, history, historyIndex, nodes, edges, handleDeleteSelected, handleCopy, handlePaste, handleUndo, handleRedo, setNodes, setEdges, handleAddChildNode]);
 
 
   const fetchMindMap = async () => {
@@ -357,6 +342,15 @@ function MindMapEditorInner() {
     toast.success('Template applied');
   }, [setNodes, setEdges, title, addToHistory, fitView]);
 
+  // AI Generation handler
+  const handleAIGenerate = useCallback((aiNodes: Node[], aiEdges: Edge[], aiTitle: string) => {
+    setNodes(aiNodes);
+    setEdges(aiEdges);
+    setTitle(aiTitle);
+    addToHistory(aiNodes, aiEdges);
+    setTimeout(() => fitView({ padding: 0.2 }), 50);
+  }, [setNodes, setEdges, addToHistory, fitView]);
+
   // Phase 3: Import JSON
   const handleImportJSON = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -504,6 +498,26 @@ function MindMapEditorInner() {
     finally { setSaving(false); }
   };
 
+  // Keyboard shortcuts effect (after all handlers are defined)
+  useEffect(() => {
+    if (readonly) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); handleDeleteSelected(); }
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'c') { e.preventDefault(); handleCopy(); }
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); handlePaste(); }
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo(); }
+      else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); handleRedo(); }
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'a') { e.preventDefault(); setNodes((nds) => nds.map((n) => ({ ...n, selected: true }))); }
+      else if (e.key === 'Escape') { setNodes((nds) => nds.map((n) => ({ ...n, selected: false }))); setEdges((eds) => eds.map((ed) => ({ ...ed, selected: false }))); }
+      else if (e.key === 'Tab' && selectedNodes.length === 1) { e.preventDefault(); handleAddChildNode(); }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -640,6 +654,7 @@ function MindMapEditorInner() {
           connectionStyle={connectionStyle}
           onConnectionStyleChange={handleConnectionStyleChange}
           onExport={handleExport}
+          onOpenAI={() => setShowAIDialog(true)}
           hasSelection={selectedNodes.length > 0}
           readonly={readonly}
         />
@@ -690,6 +705,9 @@ function MindMapEditorInner() {
 
         {/* Templates Dialog */}
         <MindMapTemplates open={showTemplates} onOpenChange={setShowTemplates} onSelectTemplate={handleSelectTemplate} />
+        
+        {/* AI Dialog */}
+        <MindMapAIDialog open={showAIDialog} onOpenChange={setShowAIDialog} onGenerate={handleAIGenerate} />
       </div>
     </DashboardLayout>
   );

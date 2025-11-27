@@ -14,11 +14,11 @@ import {
   Maximize,
   Copy,
   Clipboard,
-  Palette,
   Shapes,
   GitBranch,
   MoreHorizontal,
   ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 import {
   Select,
@@ -76,6 +76,7 @@ interface MindMapToolbarEnhancedProps {
   connectionStyle: string;
   onConnectionStyleChange: (style: string) => void;
   onExport: (format: 'png' | 'svg' | 'json') => void;
+  onOpenAI: () => void;
   hasSelection: boolean;
   readonly?: boolean;
 }
@@ -133,6 +134,7 @@ export function MindMapToolbarEnhanced({
   connectionStyle,
   onConnectionStyleChange,
   onExport,
+  onOpenAI,
   hasSelection,
   readonly,
 }: MindMapToolbarEnhancedProps) {
@@ -347,6 +349,19 @@ export function MindMapToolbarEnhanced({
               <DropdownMenuItem onClick={() => onExport('json')}>Export as JSON</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <Separator orientation="vertical" className="h-6 mx-1" />
+
+          {/* Group 8: AI Generate */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="default" size="sm" onClick={onOpenAI} className="h-8 gap-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                <Sparkles className="h-4 w-4" />
+                <span className="text-xs">AI</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Generate with AI</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -493,6 +508,11 @@ export function MindMapToolbarEnhanced({
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onExport('json')}>
                   <Download className="h-4 w-4 mr-2" /> Export JSON
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onOpenAI} className="text-purple-600 dark:text-purple-400">
+                  <Sparkles className="h-4 w-4 mr-2" /> Generate with AI
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -91,13 +91,30 @@ Comprehensive overhaul of the mind map editor to make it more flexible, robust, 
 
 ---
 
-## Phase 4: Advanced Features 📋 Planned
+## Phase 4: AI Features ✅ Complete
+
+### Tasks
+- [x] AI-powered mind map generation from text
+- [x] AI-powered mind map generation from images
+- [x] Access key authentication (elsondev26, irenendonde)
+- [x] Groq LLaMA 3.3 70B for text generation
+- [x] Groq LLaMA 3.2 90B Vision for image analysis
+- [x] AI button in toolbar (gradient purple/pink)
+- [x] AI dialog with tabs for text/image input
+
+### Files Created
+- `src/lib/mindmap-ai.ts` (Groq API integration)
+- `src/components/MindMapAIDialog.tsx` (AI generation dialog)
+
+---
+
+## Phase 5: Future Enhancements 📋 Planned
 
 ### Tasks
 - [ ] Real-time collaboration (WebSocket)
 - [ ] Node attachments (links, files, images)
 - [ ] Presentation mode (step through nodes)
-- [ ] AI-assisted suggestions
+- [ ] AI node expansion (expand selected node)
 - [ ] Comments on nodes
 - [ ] Version history
 - [ ] Embed external content (YouTube, etc.)
